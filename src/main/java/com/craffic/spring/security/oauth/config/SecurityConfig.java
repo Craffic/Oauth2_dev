@@ -1,6 +1,7 @@
 package com.craffic.spring.security.oauth.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
@@ -13,11 +14,15 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.provisioning.JdbcUserDetailsManager;
 
+import javax.sql.DataSource;
 import java.io.PrintWriter;
 
 @Configuration
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    @Autowired
+    DataSource dataSource;
 
     @Bean
     PasswordEncoder passwordEncoder(){
@@ -123,11 +128,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     /**
      * 自定义用户
      */
+    @Override
     @Bean
     protected UserDetailsService userDetailsService() {
-        InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
-        manager.createUser(User.withUsername("Craffic").password("123456").roles("admin").build());
-        manager.createUser(User.withUsername("liuchengyan").password("123456").roles("user").build());
+//        InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
+        JdbcUserDetailsManager manager = new JdbcUserDetailsManager(dataSource);
+        if (!manager.userExists("Craffic")) {
+            manager.createUser(User.withUsername("Craffic").password("123456").roles("admin").build());
+        }
+        if (!manager.userExists("liuchengyan")) {
+            manager.createUser(User.withUsername("liuchengyan").password("123456").roles("user").build());
+        }
         return manager;
     }
 
