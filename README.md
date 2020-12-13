@@ -100,6 +100,22 @@
         6.2.1 在原来基础上添加用户
         6.2.2 重写UserDetailService类来维护用户
     6.3 准备测试接口
+        6.3.1 /hello 认证后的用户都可以访问
+        6.3.2 /user/hello 具有user身份的用户才可以访问
+        6.3.3 /admin/hello 具有admin身份的用户才可以访问
     6.4 配置
+        在http的configuration方法上增加权限配置：
+            .antMatchers("/admin/**").hasRole("admin")
+            .antMatchers("/user/**").hasRole("user")
     6.5 启动测试
+        6.5.1 admin能访问/admin/hello和/hello接口
+        6.5.2 user能访问/user/hello和/hello接口
+        6.5.3 /hello接口认证过的用户都能登录
     6.6 角色继承
+        admin角色的用户自动有user的角色
+        @Bean
+        public RoleHierarchy roleHierarchy(){
+            RoleHierarchyImpl roleHierarchy = new RoleHierarchyImpl();
+            roleHierarchy.setHierarchy("ROLE_admin > ROLE_user");
+            return roleHierarchy;
+        }

@@ -5,8 +5,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.websocket.server.PathParam;
-
 @RestController
 public class loginController {
 
@@ -24,4 +22,21 @@ public class loginController {
     public String success(String name, String passwd){
         return "welcome！login success!";
     }
+
+    /**
+     * admin
+     */
+    @RequestMapping("/admin/hello")
+    public String admin(){
+        return "admin role";
+    }
+
+    /**
+     * user
+     */
+    @RequestMapping("/user/hello")
+    public String user(){
+        return "user role";
+    }
+
 }
