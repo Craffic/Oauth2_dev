@@ -119,3 +119,97 @@
             roleHierarchy.setHierarchy("ROLE_admin > ROLE_user");
             return roleHierarchy;
         }
+
+
+7. 存入数据库
+
+
+8. Spring Security + Spring Data Jpa
+    8.0 引入依赖
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+    8.1 创建实体类Role和User，User要实现UserDetails接口
+    8.2 在实体类标注Entity和Id
+        @Entity: 表示这是一个实体类，项目启动后，将会根据实体类的属性在数据库中自动创建一个角色表
+        @Id: 再加上@GeneratedValue(strategy = GenerationType.IDENTITY)，表示自增策略
+    8.3 User实体类实现的方法：
+        ·accountNonExpired-账户是否没有过期、accountNonLocked-账户是否没有被锁定、credentialsNonExpired-密码是否没有过期、enabled-账户是否可用。
+        ·roles 属性表示用户的角色，User 和 Role 是多对多关系，用一个 @ManyToMany 注解来描述。
+          @ManyToMany(fetch = FetchType.EAGER,cascade = CascadeType.PERSIST)
+        ·getAuthorities 方法返回用户的角色信息，我们在这个方法中把自己的 Role 稍微转化一下即可。
+    8.4 定义一个 UserDao：只需要继承 JpaRepository 然后提供一个根据 username 查询 user 的方法
+        public interface UserDao extends JpaRepository<User,Long> {
+            User findUserByUsername(String username);
+        }
+    8.5 定义 UserService：
+        8.5.1 需要实现 UserDetailsService 接口，实现该接口，就要实现接口中的方法，也就是 loadUserByUsername
+              这个方法的参数就是用户在登录的时候传入的用户名，根据用户名去查询用户信息（查出来之后，系统会自动进行密码比对）
+        @Service
+        public class UserService implements UserDetailsService {
+            @Autowired
+            UserDao userDao;
+            @Override
+            public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+                User user = userDao.findUserByUsername(username);
+                if (user == null) {
+                    throw new UsernameNotFoundException("用户不存在");
+                }
+                return user;
+            }
+        }
+    8.6 在 Spring Security 中稍作配置
+        8.6.1 在 SecurityConfig 中，我们通过如下方式来配置用户：
+              @Autowired
+              UserService userService;
+              @Override
+              protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+                  auth.userDetailsService(userService);
+              }
+        8.6.2 注意: 还是重写configure方法，只不过这次我们不是基于内存，也不是基于JdbcUserDetailsManager，而是使用自定义的 UserService，就这样配置就 OK 了
+    8.7 最后，我们再在 application.properties 中配置一下数据库和 JPA 的基本信息，如下
+        spring.datasource.username=root
+        spring.datasource.password=123
+        spring.datasource.url=jdbc:mysql:///withjpa?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+        ## jpa
+        spring.jpa.database=mysql
+        spring.jpa.database-platform=mysql
+        spring.jpa.hibernate.ddl-auto=update
+        spring.jpa.show-sql=true
+        spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+    8.8 测试
+        @Autowired
+        UserDao userDao;
+        @Test
+        void contextLoads() {
+            User u1 = new User();
+            u1.setUsername("javaboy");
+            u1.setPassword("123");
+            u1.setAccountNonExpired(true);
+            u1.setAccountNonLocked(true);
+            u1.setCredentialsNonExpired(true);
+            u1.setEnabled(true);
+            List<Role> rs1 = new ArrayList<>();
+            Role r1 = new Role();
+            r1.setName("ROLE_admin");
+            r1.setNameZh("管理员");
+            rs1.add(r1);
+            u1.setRoles(rs1);
+            userDao.save(u1);
+            User u2 = new User();
+            u2.setUsername("江南一点雨");
+            u2.setPassword("123");
+            u2.setAccountNonExpired(true);
+            u2.setAccountNonLocked(true);
+            u2.setCredentialsNonExpired(true);
+            u2.setEnabled(true);
+            List<Role> rs2 = new ArrayList<>();
+            Role r2 = new Role();
+            r2.setName("ROLE_user");
+            r2.setNameZh("普通用户");
+            rs2.add(r2);
+            u2.setRoles(rs2);
+            userDao.save(u2);
+        }
+    8.9 数据库多了会插入用户数据

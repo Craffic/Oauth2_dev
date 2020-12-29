@@ -1,11 +1,13 @@
 package com.craffic.spring.security.oauth.config;
 
+import com.craffic.spring.security.oauth.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -21,9 +23,10 @@ import java.io.PrintWriter;
 
 @Configuration
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
+//    @Autowired
+//    DataSource dataSource;
     @Autowired
-    DataSource dataSource;
-
+    UserService userService;
     @Bean
     PasswordEncoder passwordEncoder(){
         // 暂时使用明文存储，方法已过期必须使用加密密码
@@ -125,21 +128,29 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 ////        auth.inMemoryAuthentication().withUser("liuchengyan").password("123456").roles("user");
 //    }
 
-    /**
-     * 自定义用户
+//    /**
+//     * 自定义用户
+//     */
+//    @Override
+//    @Bean
+//    protected UserDetailsService userDetailsService() {
+////        InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
+//        JdbcUserDetailsManager manager = new JdbcUserDetailsManager(dataSource);
+//        if (!manager.userExists("Craffic")) {
+//            manager.createUser(User.withUsername("Craffic").password("123456").roles("admin").build());
+//        }
+//        if (!manager.userExists("liuchengyan")) {
+//            manager.createUser(User.withUsername("liuchengyan").password("123456").roles("user").build());
+//        }
+//        return manager;
+//    }
+
+    /*
+   配置用户
      */
     @Override
-    @Bean
-    protected UserDetailsService userDetailsService() {
-//        InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
-        JdbcUserDetailsManager manager = new JdbcUserDetailsManager(dataSource);
-        if (!manager.userExists("Craffic")) {
-            manager.createUser(User.withUsername("Craffic").password("123456").roles("admin").build());
-        }
-        if (!manager.userExists("liuchengyan")) {
-            manager.createUser(User.withUsername("liuchengyan").password("123456").roles("user").build());
-        }
-        return manager;
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth.userDetailsService(userService);
     }
 
     /**
