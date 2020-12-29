@@ -45,8 +45,7 @@
               · logoutSuccessUrl 表示注销成功后要跳转的页面
               · deleteCookies 用来清除 cookie
               · clearAuthentication 和 invalidateHttpSession 分别表示清除认证信息和使 HttpSession 失效，默认可以不用配置，默认就会清除。
-              
-              
+                            
 5. Oauth2做前后端分离的登录交互
     5.1 登录交互
         5.1.1 登录成功
@@ -59,8 +58,7 @@
                    out.write(new ObjectMapper().writeValueAsString(principal));
                    out.flush();
                    out.close();
-               })            
-              
+               })                   
         5.1.2 登录失败
               .failureHandler((req, resp, e) -> {
                   resp.setContentType("application/json;charset=utf-8");
@@ -93,7 +91,6 @@
         .permitAll()
         .and()
 
-
 6. OAuth2用户授权
     6.1 授权
     6.2 准备测试用户（两种方式）
@@ -120,9 +117,7 @@
             return roleHierarchy;
         }
 
-
 7. 存入数据库
-
 
 8. Spring Security + Spring Data Jpa
     8.0 引入依赖
@@ -213,3 +208,14 @@
             userDao.save(u2);
         }
     8.9 数据库多了会插入用户数据
+    
+9. 登录时加入验证码
+    9.1 生成验证码工具类
+    9.2 在LoginController里提供验证码的接口
+    9.3 在SecurityConfig配置类里配置获取验证码接口/verifyCode免鉴权
+    9.4 在Spring Security 的配置中，配置过滤器
+    9.5 测试
+        9.5.1 获取验证码：http://localhost:8080/verifyCode
+        9.5.2 登录输入验证码：http://localhost:8080/doLogin
+             
+    
