@@ -1,5 +1,6 @@
 package com.craffic.spring.security.oauth.config;
 
+import com.craffic.spring.security.oauth.Filter.LoginFilter;
 import com.craffic.spring.security.oauth.Filter.VerifyCodeFilter;
 import com.craffic.spring.security.oauth.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,19 +9,29 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
+import org.springframework.security.authentication.*;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.sql.DataSource;
+import java.io.IOException;
 import java.io.PrintWriter;
 
 @Configuration
@@ -39,6 +50,50 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         return NoOpPasswordEncoder.getInstance();
     }
 
+    /**
+     * 提供一个 LoginFilter 的实例
+     * @throws Exception
+     */
+    @Bean
+    LoginFilter loginFilter() throws Exception {
+        LoginFilter loginFilter = new LoginFilter();
+        loginFilter.setAuthenticationSuccessHandler(new AuthenticationSuccessHandler() {
+            @Override
+            public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+                response.setContentType("application/json;charset=utf-8");
+                PrintWriter writer = response.getWriter();
+                writer.write(new ObjectMapper().writeValueAsString(authentication.getPrincipal()));
+                writer.flush();
+                writer.close();
+            }
+        });
+        loginFilter.setAuthenticationFailureHandler(new AuthenticationFailureHandler() {
+            @Override
+            public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
+                response.setContentType("application/json;charset=utf-8");
+                PrintWriter out = response.getWriter();
+                if (exception instanceof LockedException) {
+                    out.write(new ObjectMapper().writeValueAsString("账户被锁定，请联系管理员!"));
+                } else if (exception instanceof CredentialsExpiredException) {
+                    out.write(new ObjectMapper().writeValueAsString("密码过期，请联系管理员!"));
+                } else if (exception instanceof AccountExpiredException) {
+                    out.write(new ObjectMapper().writeValueAsString("账户过期，请联系管理员!"));
+                } else if (exception instanceof DisabledException) {
+                    out.write(new ObjectMapper().writeValueAsString("账户被禁用，请联系管理员!"));
+                } else if (exception instanceof BadCredentialsException) {
+                    out.write(new ObjectMapper().writeValueAsString("用户名或者密码输入错误，请重新输入!"));
+                } else if(exception instanceof AuthenticationException){
+                    out.write(new ObjectMapper().writeValueAsString("验证码输入错误!"));
+                }
+                out.flush();
+                out.close();
+            }
+        });
+        loginFilter.setAuthenticationManager(authenticationManagerBean());
+        loginFilter.setFilterProcessesUrl("/doLogin");
+        return loginFilter;
+    }
+
     @Override
     public void configure(WebSecurity web) throws Exception {
         web.ignoring().antMatchers("/js/**", "/images/**", "/css/**", "/verifyCode");
@@ -47,86 +102,14 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         // 添加验证码过滤器到用户名密码过滤器前面
-        http.addFilterBefore(verifyCodeFilter, UsernamePasswordAuthenticationFilter.class);
+//        http.addFilterBefore(verifyCodeFilter, UsernamePasswordAuthenticationFilter.class);
         http.authorizeRequests()
                 .antMatchers("/admin/**").hasRole("admin")
                 .antMatchers("/user/**").hasRole("user")
                 .anyRequest().authenticated()
                 .and()
-                .formLogin()
-                .loginPage("/login.html")
-                .loginProcessingUrl("/doLogin")
-                .usernameParameter("name")
-                .passwordParameter("passwd")
-                // 前后端不分离的回调
-                // 登录成功后的一个跳转默认地址，服务端的跳转
-                // 登录后跳转到localhost:8080.报404错误，因为没有/这个路径，登陆成功后有个默认路径跳转到/
-                // 自己定义一个success页面, 登陆成功后跳转到/success页面上，但是路径还是http://localhost:8080/doLogin，说明他是个服务端跳转
-                // successForwardUrl有个特点就是：不管从什么页面过来的，登录成功后都是跳转到/success页面上来
-//                .successForwardUrl("/success")
-                // 还有一个就是defaultSuccessUrl，会记住你原始跳转时重定向的url
-                // 比如京东淘宝没登录就允许加入购物车，但是结算的时候要让你登录，登录成功后就是结算页面，而不是首页，说明登录时记录了你重定向的地址
-                // 登录成功后，地址变成http://localhost:8080/success，说明重定向成功了
-                // 登录前输入hello路径，登录后会跳转到hello路径
-                // defaultSuccessUrl(url, false) = successForwardUrl
-//                .defaultSuccessUrl("/success")
-
-                // 前后端分离，返回json数据给前端
-                // 登录成功的回调
-                .successHandler((res, resp, authentication) -> {
-                    resp.setContentType("application/json;charset=utf-8");
-                    PrintWriter writer = resp.getWriter();
-                    writer.write(new ObjectMapper().writeValueAsString(authentication.getPrincipal()));
-                    writer.flush();
-                    writer.close();
-                })
-                // 登录失败的回调
-                .failureHandler((res, resp, exception) -> {
-                    // 根据exception告诉什么原因的失败
-                    resp.setContentType("application/json;charset=utf-8");
-                    PrintWriter writer = resp.getWriter();
-                    writer.write(new ObjectMapper().writeValueAsString(exception.getMessage()));
-                    writer.flush();
-                    writer.close();
-                })
-
-                .permitAll()
-                .and()
-                .logout()
-                // 这里的/logout是个get请求
-                .logoutUrl("/logout")
-                // 如果想让/logout是个post请求，可以这样来
-//                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "POST"))
-                // 退出登录后跳转到登陆页面
-//                .logoutSuccessUrl("/login.html")
-                // 退出登录session失效
-//                .invalidateHttpSession(true)
-                // 清除认证信息
-//                .clearAuthentication(true)
-
-                // 注销登录
-                // 如果注销登录，希望返回json字符串，而不是跳转到登陆页面
-                .logoutSuccessHandler((req, resp, authentication) -> {
-                    resp.setContentType("application/json;charset=utf-8");
-                    PrintWriter writer = resp.getWriter();
-                    writer.write(new ObjectMapper().writeValueAsString("注销登录成功"));
-                    writer.flush();
-                    writer.close();
-                })
-
-
-                .permitAll()
-                .and()
-                .csrf().disable()
-                // 如果没登录就请求资源就会跳转到登录页面，在前后端分离的系统中是不行的，所以当未登录时请求系统资源返回json字符串就行
-                .exceptionHandling()
-                .authenticationEntryPoint((req, resp, exception) -> {
-                    resp.setContentType("application/json;charset=utf-8");
-                    PrintWriter writer = resp.getWriter();
-                    writer.write(new ObjectMapper().writeValueAsString("用户尚未登录，请先登录！"));
-                    writer.flush();
-                    writer.close();
-                });
+                .csrf().disable();
+        http.addFilterAt(loginFilter(), UsernamePasswordAuthenticationFilter.class);
     }
 
 //    @Override

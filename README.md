@@ -218,4 +218,9 @@
         9.5.1 获取验证码：http://localhost:8080/verifyCode
         9.5.2 登录输入验证码：http://localhost:8080/doLogin
              
-    
+10. 兼容key/value和json格式登录
+    10.1 自定义过滤器LoginFilter替代UsernamePasswordAuthenticationFilter 
+    10.2 在SecurityConfig类里配置LoginFilter的实例
+         代替了 UsernamePasswordAuthenticationFilter 之后，原本在 SecurityConfig#configure 方法中关于 form 表单的配置就会失效，
+         那些失效的属性，都可以在配置 LoginFilter 实例的时候配置
+    10.3 用自定义的 LoginFilter 实例代替 UsernamePasswordAuthenticationFilter，调用 addFilterAt 方法完成替换操作。

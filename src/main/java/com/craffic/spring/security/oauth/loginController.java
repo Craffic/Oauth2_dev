@@ -51,7 +51,7 @@ public class loginController {
      * 获取验证码接口
      */
     @GetMapping("/verifyCode")
-    public void getVerifyCode(HttpServletRequest req, HttpServletResponse response) throws IOException {
+    public void getVerifyCode(HttpServletRequest req, HttpServletResponse response) throws Exception {
         VerifyCodeUtil verifyCode = new VerifyCodeUtil();
         BufferedImage image = verifyCode.getImage();
         String text = verifyCode.getText();
